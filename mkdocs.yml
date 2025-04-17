@@ -1,2 +1,4 @@
 site_name: Моя дока
 theme: readthedocs
+nav:
+- Home: index.md
