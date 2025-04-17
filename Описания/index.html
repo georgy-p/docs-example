@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Запуск потоков по событию - Моя дока</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "\u0417\u0430\u043f\u0443\u0441\u043a \u043f\u043e\u0442\u043e\u043a\u043e\u0432 \u043f\u043e \u0441\u043e\u0431\u044b\u0442\u0438\u044e";
+        var mkdocs_page_input_path = "\u041e\u043f\u0438\u0441\u0430\u043d\u0438\u044f/index.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Моя дока
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Портал моей документации</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">S3</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../s3/">Архитектура сервиса S3</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Описания</span></p>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Запуск потоков по событию</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#_2">Установить зависимости потока от события</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#_3">Где хранятся логи готовности источников</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#_4">Задать настройки обработки логов источников</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#_5">Таблица обработанных логов</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#_6">Проверка готовности лога сенсорами</a>
+    </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Чеклисты</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../%D0%A7%D0%B5%D0%BA%D0%BB%D0%B8%D1%81%D1%82%D1%8B/">Чеклист для код-ревью разработанных DAG и dbt-моделей</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Моя дока</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Описания</li>
+      <li class="breadcrumb-item active">Запуск потоков по событию</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="_1">Запуск потоков по событию</h1>
+<p>Работа части потоков данных в ночном и вечернем регламентах связана с источниками, которые не имеют четкого времени готовности. Эти потоки не запускаются Airflow, пока в Postgres не появятся логи готовности источников. Такой запуск называется событийным.</p>
+<p>Структура событийного запуска:</p>
+<ol>
+<li><a href="#_2">dbt-модели</a> — в них указываются зависимости от логов источников.</li>
+<li><a href="#_3">Представление</a> — хранит логи готовности источников.</li>
+<li><a href="#_4">Настройки обработки логов</a> — хранятся в таблице и задаются через SQL-функцию.</li>
+<li><a href="#_5">Таблица обработанных логов</a> — хранит логи из представления, настройки и результат их обработки.</li>
+<li>Redis — хранит данные сводной таблицы и обеспечивает к ним быстрый доступ.</li>
+<li><a href="#_6">Сенсоры</a> — проверяют в Redis готовность логов и сообщают Airflow, что зависимые потоки могут быть запущены.</li>
+</ol>
+<p>Большинство этапов событийного запуска выполняется автоматически. Чтобы привязать поток к событийному запуску разработчику необходимо:</p>
+<ol>
+<li><a href="#_2">Установить зависимости</a> потока от события в dbt-модели. </li>
+<li><a href="#_4">Задать настройки</a> для обработки логов.</li>
+</ol>
+<p><img alt="Схема событийного запуска" src="event_wait.png" /></p>
+<h2 id="_2">Установить зависимости потока от события</h2>
+<p>Чтобы поток данных внутри регламента запускался по событию, нужно указать на уровне dbt-модели от каких источников он зависит. Для этого укажите в объекте source модели название external-таблицы, которая ссылается на лог из представления view.name.</p>
+<p>Во время запуска регламента Airflow определит, что поток зависит от лога и запустит его только, когда на сенсоре появится метка готовности лога.</p>
+<h2 id="_3">Где хранятся логи готовности источников</h2>
+<table>
+<thead>
+<tr>
+<th>Наименование</th>
+<th>Значение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Представление</strong></td>
+<td>view_name</td>
+</tr>
+<tr>
+<td><strong>База данных</strong></td>
+<td>Postgres</td>
+</tr>
+<tr>
+<td><strong>Какие даги загружают данные</strong></td>
+<td>DAG_NAME1 DAG_NAME2</td>
+</tr>
+<tr>
+<td><strong>Какой даг выгружает данные</strong></td>
+<td>DAG_NAME</td>
+</tr>
+</tbody>
+</table>
+<p>Логи готовности источников хранятся в представлении view.name. На следующих этапах событийного механизма, данные представления будут обработаны и добавлены в Redis.</p>
+<p>Логи собираются из fm-таблиц и добавляются с помощью системных дагов: DAG_NAME1 и DAG_NAME2, которые:</p>
+<ol>
+<li>Собирают данные из внешних источников в fm-таблицы в Postgres.</li>
+<li>Загружают данные из fm-таблиц в представление.</li>
+</ol>
+<p>Даг DAG_NAME собирает логи каждую минуту.</p>
+<p>Даг DAG_NAME собирает логи раз в 5 минут.</p>
+<p>Для обратной совместимости настроена синхронизация между базами данных Postgres и Greenplum с помощью дага DAG_NAME. Даг переносит данные из представления view_name в таблицу в Greenplum table_name. Затем в Greenplum формируется представление view_name доступное для пользователей.</p>
+<h2 id="_4">Задать настройки обработки логов источников</h2>
+<table>
+<thead>
+<tr>
+<th>Наименование</th>
+<th>Значение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Исходная таблица</strong></td>
+<td>table_name</td>
+</tr>
+<tr>
+<td><strong>Исходная база данных</strong></td>
+<td>Greenplum</td>
+</tr>
+<tr>
+<td><strong>Целевая таблица</strong></td>
+<td>table_name</td>
+</tr>
+<tr>
+<td><strong>База данных</strong></td>
+<td>Postgres</td>
+</tr>
+<tr>
+<td><strong>Какой даг загружает данные</strong></td>
+<td>DAG_NAME</td>
+</tr>
+<tr>
+<td><strong>Какой даг выгружает данные</strong></td>
+<td>DAG_NAME</td>
+</tr>
+</tbody>
+</table>
+<p>Для каждого лога источника можно задать набор настроек, которые будут применяться при релизе. Настройки прописываются в функции func_name в SQL-файле релиза:</p>
+<pre><code>SELECT func_name (
+    '000000000', --база таблицы-источника в Hive
+    'name', --имя таблицы-источника в Hive
+    0, --время дедлайна (час)
+    0, --время дедлайна (минута)
+    null, --время начала чтения логов (час)
+    null, --время начала чтения логов (минута)
+    1, --количество записей логов
+);
+</code></pre>
+<p>Функция выполняется вместе с остальным SQL-кодом во время релиза:</p>
+<ol>
+<li>Настройки добавляются в таблицу table_name в Greenplum. Если в таблице были предыдущие данные о настройках обработки лога источника, они считаются неактуальными и не применятся.</li>
+<li>Даг DAG_NAME загружает данные настроек в целевую таблицу table_name в Postgres.</li>
+</ol>
+<h2 id="_5">Таблица обработанных логов</h2>
+<table>
+<thead>
+<tr>
+<th>Наименование</th>
+<th>Значение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Таблица</strong></td>
+<td>table_name</td>
+</tr>
+<tr>
+<td><strong>База данных</strong></td>
+<td>Postgres</td>
+</tr>
+<tr>
+<td><strong>Какой даг загружает и выгружает данные</strong></td>
+<td>DAG_NAME</td>
+</tr>
+</tbody>
+</table>
+<p>В таблице table_name собираются данные:</p>
+<ul>
+<li>логи источников из представления;</li>
+<li>настройки обработки логов;</li>
+<li>обработанные логи после применения настроек.</li>
+</ul>
+<p>Данные попадают в таблицу с помощью дага DAG_NAME.</p>
+<p>Что делает даг:</p>
+<ol>
+<li>Выгружает данные из представления view_name.</li>
+<li>Выгружает данные из таблицы table_name1.</li>
+<li>Загружает данные в таблицу table_name2.</li>
+<li>Отправляет данные в Redis.</li>
+</ol>
+<p>Даг DAG_NAME переносит данные из таблицы в Postgres table_name1 в таблицу в Greenplum table_name2, которая доступна для пользователей.</p>
+<h2 id="_6">Проверка готовности лога сенсорами</h2>
+<p>В вечернем и ночном регламентах есть отдельные даги — сенсоры. Когда Airflow запускает регламент, он запускает сенсоры, которые проверяют готовности логов для зависимых потоков данных. Для этого внутри сенсоров есть две задачи: task1 и task2.</p>
+<p>При выполнении задачи task1 сенсор:</p>
+<ol>
+<li>Читает объект с логами object_name в Redis.</li>
+<li>Ищет лог по ключу в объекте.</li>
+<li>Меняет статус задачи на «success» если лог найден.</li>
+</ol>
+<p>Если лог не найден, задача перезапускается до тех пор, пока лог не найдется. </p>
+<p>Когда лог получен, запускается задача task2:</p>
+<ol>
+<li>Сенсор находит одноименную задачу в основном даге.</li>
+<li>Меняет статус задачи на «success».</li>
+<li>Airflow запускает зависимый поток данных на выполнение.</li>
+</ol>
+<p>Если лог не был получен, зависимый от него поток все равно запустится по расписанию.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../s3/" class="btn btn-neutral float-left" title="Архитектура сервиса S3"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../%D0%A7%D0%B5%D0%BA%D0%BB%D0%B8%D1%81%D1%82%D1%8B/" class="btn btn-neutral float-right" title="Чеклист для код-ревью разработанных DAG и dbt-моделей">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../s3/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../%D0%A7%D0%B5%D0%BA%D0%BB%D0%B8%D1%81%D1%82%D1%8B/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
